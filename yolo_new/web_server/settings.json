@@ -1,0 +1,25 @@
+{
+  "cobot_ip": "10.5.5.100",
+  "camera_index": 0,
+  "camera_res_w": 640,
+  "camera_res_h": 480,
+  "last_needle_color": "green",
+  "last_move_mm": 1.5,
+  "last_offset_mm": 15,
+  "calibration_start_joints": [
+    -218.688,
+    50.757,
+    -100.278,
+    89.687,
+    -188.757,
+    -266.973
+  ],
+  "alignment_standby_joints": [
+    -218.688,
+    50.757,
+    -100.278,
+    89.687,
+    -188.757,
+    -266.973
+  ]
+}
