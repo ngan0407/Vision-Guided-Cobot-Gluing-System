@@ -1,0 +1,1256 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f2f5; padding: 20px; }
+        .panel { padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        .command-section { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .command-section h2 { margin-top: 0; color: #333; }
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .input-row { display: flex; align-items: center; gap: 10px; }
+        .input-row label { font-weight: bold; min-width: 160px; text-align: right;}
+        input, select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; flex-grow: 1; }
+        button { padding: 12px 25px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; transition: background-color 0.3s; }
+        #calibrateBtn { background-color: #007bff; }
+        #calibrateBtn:hover { background-color: #0056b3; }
+        #alignBtn { background-color: #28a745; }
+        #alignBtn:hover { background-color: #218838; }
+        #status-log-container { margin-top: 20px; }
+        #status-log {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .log-error { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="command-section">
+            <h2>Calibration</h2>
+            <div class="input-group">
+                <div class="input-row"><label for="calibMove">Calibration Move (mm):</label><input type="number" id="calibMove" value="1.5" step="0.1"></div>
+                <div class="input-row"><label for="standbyOffset">Standby Offset (mm):</label><input type="number" id="standbyOffset" value="50"></div>
+            </div>
+            <button id="calibrateBtn">Run Calibration</button>
+        </div>
+        <div class="command-section">
+            <h2>Alignment</h2>
+            <div class="input-group">
+                <div class="input-row"><label for="needleColor">Needle Color:</label><select id="needleColor"><option value="red">Red</option><option value="green">Green</option><option value="pink">Pink</option></select></div>
+            </div>
+            <button id="alignBtn">Run Alignment</button>
+        </div>
+        <div id="status-log-container">
+            <h3>Real-Time Status</h3>
+            <div id="status-log">Waiting for a process to start...</div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('status-log');
+        const socket = io();
+
+        // --- NEW: Function to load settings when the page opens ---
+        function loadSettings() {
+            fetch('/get-settings')
+                .then(response => response.json())
+                .then(settings => {
+                    console.log('Loaded settings:', settings);
+                    document.getElementById('calibMove').value = settings.last_move_mm;
+                    document.getElementById('standbyOffset').value = settings.last_offset_mm;
+                    document.getElementById('needleColor').value = settings.last_needle_color;
+                })
+                .catch(error => console.error('Error fetching settings:', error));
+        }
+        
+        // Run the loadSettings function when the page content is fully loaded
+        window.addEventListener('DOMContentLoaded', loadSettings);
+
+        socket.on('connect', () => {
+            console.log('Connected to the server!');
+            log.innerHTML = 'Successfully connected to the server. Ready.';
+        });
+
+        socket.on('status_update', (data) => {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${data.msg}`;
+            if (data.error) entry.classList.add('log-error');
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            log.innerHTML = 'Initiating calibration...';
+            const move_mm = document.getElementById('calibMove').value;
+            const offset_mm = document.getElementById('standbyOffset').value;
+            fetch('/run-calibrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ move_mm: move_mm, offset_mm: offset_mm })
+            });
+        });
+
+        document.getElementById('alignBtn').addEventListener('click', () => {
+            log.innerHTML = 'Initiating alignment...';
+            const needle_color = document.getElementById('needleColor').value;
+            fetch('/run-alignment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ needle_color: needle_color })
+            });
+        });
+    </script>
+</body>
+</html> -->
+
+
+<!-- #------testing only (without cobot) -->
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f2f5; padding: 20px; box-sizing: border-box; }
+        .panel { padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 1200px; }
+        .main-container { display: flex; flex-wrap: wrap; gap: 30px; }
+        .controls { flex: 1; min-width: 300px; }
+        .live-view { flex: 1.5; min-width: 400px; }
+        .command-section { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        h2, h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        button { padding: 12px 25px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; transition: background-color 0.3s; }
+        #testBtn { background-color: #ffc107; color: black; font-weight: bold; }
+        #proceedBtn { background-color: #17a2b8; display: none; margin-top: 10px; }
+        #stopBtn { background-color: #dc3545; font-weight: bold; margin-top: 20px; }
+        
+        .info-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        #fps-display {
+            color: #28a745;
+            margin-left: 8px;
+        }
+
+        #video-feed { width: 100%; background-color: #000; border-radius: 5px; display: block; }
+        #status-log { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; height: 250px; overflow-y: auto; font-family: 'SF Mono', 'Courier New', monospace; font-size: 14px; white-space: pre-wrap; }
+        .log-error { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="main-container">
+            <div class="controls">
+                <div class="command-section">
+                    <h2>Integration Test</h2>
+                    <p>Run the detection and template matching pipeline to test the web interface.</p>
+                    <button id="testBtn">Run Integration Test</button>
+                </div>
+                
+                <button id="stopBtn">🚨 EMERGENCY STOP 🚨</button>
+                
+                <div id="status-log-container" style="margin-top: 20px;">
+                    <h3>Real-Time Status</h3>
+                    <div id="status-log">Waiting for a process to start...</div>
+                </div>
+            </div>
+            <div class="live-view">
+                <h3>Live View</h3>
+                <div class="info-bar">
+                    <span>Performance: </span><span id="fps-display">--</span><span> FPS</span>
+                </div>
+                <img id="video-feed" src="" alt="Live video will appear here.">
+                <button id="proceedBtn">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('status-log');
+        const videoFeed = document.getElementById('video-feed');
+        const proceedBtn = document.getElementById('proceedBtn');
+        const fpsDisplay = document.getElementById('fps-display');
+        const socket = io();
+
+        socket.on('connect', () => { log.innerHTML = 'Connected to server. Ready.'; });
+
+        socket.on('status_update', (data) => {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${data.msg}`;
+            if (data.error) entry.classList.add('log-error');
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            proceedBtn.style.display = data.paused ? 'block' : 'none';
+        });
+
+        socket.on('video_frame', (data) => {
+            videoFeed.src = 'data:image/jpeg;base64,' + data.img_data;
+        });
+        
+        socket.on('fps_update', (data) => {
+            fpsDisplay.textContent = data.fps;
+        });
+
+        document.getElementById('testBtn').addEventListener('click', () => {
+            log.innerHTML = 'Initiating integration test...';
+            fpsDisplay.textContent = '--'; // Reset FPS display on start
+            fetch('/run-test', { method: 'POST' });
+        });
+        
+        proceedBtn.addEventListener('click', () => {
+            socket.emit('continue_process');
+        });
+        
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            log.innerHTML = '🛑 Sending stop signal...';
+            socket.emit('emergency_stop');
+        });
+    </script>
+</body>
+</html> -->
+
+
+<!-- REAL WITH COBOT -->
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f2f5; padding: 20px; box-sizing: border-box; }
+        .panel { padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 1400px; margin: auto; }
+        h1, h2, h3 { color: #333; }
+        h1 { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .main-container { display: flex; flex-wrap: wrap; gap: 30px; }
+        .controls-column { flex: 1; min-width: 450px; }
+        .live-view-column { flex: 1.5; min-width: 600px; }
+        .section { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #fafafa; }
+        button { padding: 12px 25px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; transition: background-color 0.3s; font-weight: bold; }
+        .btn-group button { margin-top: 10px; }
+        #posViewBtn { background-color: #6c757d; }
+        #savePosBtn { background-color: #007bff; }
+        #calibrateBtn { background-color: #fd7e14; }
+        #alignBtn { background-color: #28a745; }
+        #proceedBtn { background-color: #17a2b8; display: none; margin-top: 10px; }
+        #stopBtn { background-color: #dc3545; }
+        .joint-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .joint-input-group { margin-top: 15px; }
+        .joint-input { display: flex; flex-direction: column; }
+        .joint-input label { font-size: 0.8em; margin-bottom: 2px; color: #555; }
+        input[type=number], input[type=text], select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        .info-bar { display: flex; justify-content: space-between; align-items: center; background-color: #e9ecef; border-radius: 5px; padding: 10px 15px; margin-bottom: 15px; font-size: 1.2em; font-weight: bold; }
+        #fps-display { color: #28a745; }
+        #video-feed { width: 100%; background-color: #000; border-radius: 5px; display: block; min-height: 480px; aspect-ratio: 16 / 9; object-fit: contain; }
+        #status-log { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; height: 300px; overflow-y: auto; font-family: 'SF Mono', 'Courier New', monospace; font-size: 14px; white-space: pre-wrap; }
+        .log-error { color: #e74c3c; font-weight: bold; }
+        .input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .input-row label { font-weight: bold; min-width: 150px; text-align: right; }
+        #latest-status { font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Cobot Control & Alignment System</h1>
+        <div class="main-container">
+            <div class="controls-column">
+                <div class="section">
+                    <h2>1. Setup & Positioning</h2>
+                    <p>Use the live view to manually position the robot, then save the starting joint positions below.</p>
+                    <button id="posViewBtn">Start Positioning View</button>
+                    <div id="joint-positions-section" style="margin-top: 20px;">
+                        <div class="joint-input-group">
+                            <h3>Calibration Start Joints</h3>
+                            <div class="joint-inputs" id="calib-joints"></div>
+                        </div>
+                        <div class="joint-input-group">
+                            <h3>Alignment Standby Joints</h3>
+                            <div class="joint-inputs" id="align-joints"></div>
+                        </div>
+                        <button id="savePosBtn" style="margin-top: 15px;">Save Positions</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>2. Main Operations</h2>
+                    <div class="input-row"><label for="cobot_ip">Cobot IP:</label><input type="text" id="cobot_ip" value="192.168.1.166"></div>
+                    <div class="input-row"><label for="needleColor">Needle Color:</label><select id="needleColor"><option value="red">Red</option><option value="green">Green</option><option value="pink">Pink</option></select></div>
+                    <div class="input-row"><label for="calibMove">Calib Move (mm):</label><input type="number" id="calibMove" value="10.0" step="0.1"></div>
+                    <div class="input-row"><label for="standbyOffset">Standby Offset (mm):</label><input type="number" id="standbyOffset" value="50.0"></div>
+                    <div class="btn-group">
+                        <button id="calibrateBtn">Run Calibration</button>
+                        <button id="alignBtn">Run Alignment</button>
+                    </div>
+                </div>
+
+                 <div class="section">
+                    <h3>System Control</h3>
+                    <button id="stopBtn">🚨 EMERGENCY STOP 🚨</button>
+                </div>
+            </div>
+
+            <div class="live-view-column">
+                <h3>Live View</h3>
+                <div class="info-bar">
+                    <div>Status: <span id="latest-status">Ready</span></div>
+                    <div>Performance: <span id="fps-display">--</span> FPS</div>
+                </div>
+                <img id="video-feed" src="" alt="Live feed from the camera will appear here.">
+                <button id="proceedBtn">Proceed to Next Step</button>
+                <div id="status-log-container" style="margin-top: 20px;">
+                    <h3>Full Status Log</h3>
+                    <div id="status-log">Ready to connect.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const log = document.getElementById('status-log');
+        const videoFeed = document.getElementById('video-feed');
+        const proceedBtn = document.getElementById('proceedBtn');
+        const fpsDisplay = document.getElementById('fps-display');
+        const latestStatusDisplay = document.getElementById('latest-status');
+        const calibJointsContainer = document.getElementById('calib-joints');
+        const alignJointsContainer = document.getElementById('align-joints');
+
+        function createJointInputs(container, prefix, count) {
+            for (let i = 1; i <= count; i++) {
+                const div = document.createElement('div');
+                div.className = 'joint-input';
+                const label = document.createElement('label');
+                label.htmlFor = `${prefix}_j${i}`;
+                label.textContent = `J${i}`;
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `${prefix}_j${i}`;
+                input.step = 'any';
+                div.appendChild(label);
+                div.appendChild(input);
+                container.appendChild(div);
+            }
+        }
+        createJointInputs(calibJointsContainer, 'calib', 6);
+        createJointInputs(alignJointsContainer, 'align', 6);
+        
+        function loadPositions() {
+            fetch('/get-positions').then(res => res.json()).then(data => {
+                if (data.calibration_start_joints) {
+                    data.calibration_start_joints.forEach((val, i) => document.getElementById(`calib_j${i+1}`).value = val);
+                }
+                if (data.alignment_standby_joints) {
+                    data.alignment_standby_joints.forEach((val, i) => document.getElementById(`align_j${i+1}`).value = val);
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', loadPositions);
+
+        socket.on('connect', () => { 
+            log.innerHTML = 'Connected to server. Ready.';
+            latestStatusDisplay.textContent = 'Ready';
+        });
+
+        socket.on('status_update', (data) => {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${data.msg}`;
+            if (data.error) {
+                entry.classList.add('log-error');
+                latestStatusDisplay.classList.add('log-error');
+            } else {
+                latestStatusDisplay.classList.remove('log-error');
+            }
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            latestStatusDisplay.textContent = data.msg;
+            proceedBtn.style.display = data.paused ? 'block' : 'none';
+        });
+
+        socket.on('video_frame', (data) => { videoFeed.src = 'data:image/jpeg;base64,' + data.img_data; });
+        socket.on('fps_update', (data) => { fpsDisplay.textContent = data.fps; });
+
+        document.getElementById('posViewBtn').addEventListener('click', () => {
+            log.innerHTML = "Starting positioning view...";
+            fetch('/start-positioning-view', { method: 'POST' });
+        });
+
+        document.getElementById('savePosBtn').addEventListener('click', () => {
+            const positions = {
+                calibration_start_joints: Array.from({length: 6}, (_, i) => parseFloat(document.getElementById(`calib_j${i+1}`).value) || 0),
+                alignment_standby_joints: Array.from({length: 6}, (_, i) => parseFloat(document.getElementById(`align_j${i+1}`).value) || 0)
+            };
+            fetch('/save-positions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(positions)
+            }).then(res => res.json()).then(data => alert(data.message || data.error));
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            log.innerHTML = 'Initiating calibration...';
+            fpsDisplay.textContent = '--';
+            const payload = {
+                cobot_ip: document.getElementById('cobot_ip').value,
+                needle_color: document.getElementById('needleColor').value,
+                move_mm: document.getElementById('calibMove').value,
+                offset_mm: document.getElementById('standbyOffset').value,
+            };
+            fetch('/run-calibrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        });
+
+        document.getElementById('alignBtn').addEventListener('click', () => {
+            log.innerHTML = 'Initiating alignment...';
+            fpsDisplay.textContent = '--';
+            const payload = {
+                cobot_ip: document.getElementById('cobot_ip').value,
+                needle_color: document.getElementById('needleColor').value,
+                offset_mm: document.getElementById('standbyOffset').value
+            };
+            fetch('/run-alignment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            log.innerHTML = '🛑 Sending stop signal...';
+            socket.emit('emergency_stop');
+        });
+
+        proceedBtn.addEventListener('click', () => {
+            socket.emit('continue_process');
+        });
+    </script>
+</body>
+</html> -->
+
+
+<!-- ------for real integration (high latency) -->
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; background-color: #f0f2f5; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; max-width: 1400px; }
+        .main-content { flex: 2; min-width: 600px; }
+        .sidebar { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 20px;}
+        .panel { padding: 20px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .panel h2 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        /* Video Feed */
+        #video-container { position: relative; width: 100%; background-color: #000; border-radius: 8px; overflow: hidden; min-height: 480px; }
+        #video-feed { width: 100%; height: auto; display: block; }
+        #popup-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        #popup-image { max-width: 90%; max-height: 70%; border: 2px solid white; border-radius: 8px; }
+        #proceedBtn { padding: 12px 25px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Controls */
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .controls-grid button { padding: 12px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+        #calibrateBtn { background-color: #007bff; }
+        #calibrateBtn:hover { background-color: #0056b3; }
+        #alignBtn { background-color: #28a745; }
+        #alignBtn:hover { background-color: #218838; }
+        #eStopBtn { background-color: #dc3545; grid-column: 1 / -1; font-weight: bold; font-size: 18px; }
+        #eStopBtn:hover { background-color: #c82333; }
+
+        /* Settings */
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .input-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 10px; }
+        .input-row label { font-weight: 500; text-align: right; color: #555; }
+        input[type="number"], input[type="text"], select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; width: 100%; box-sizing: border-box; }
+        .joint-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .joint-inputs input { text-align: center; }
+        #saveSettingsBtn { background-color: #17a2b8; color: white; width: 100%; padding: 12px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Status Log */
+        #status-log-container { flex-grow: 1; }
+        #status-log { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; height: 300px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 14px; white-space: pre-wrap; }
+        .log-error { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="panel">
+                <h2>Live View & Process Control</h2>
+                <div id="video-container">
+                    <img id="video-feed" src="" alt="Live Feed">
+                    <div id="popup-container">
+                        <img id="popup-image" src="" alt="Process Step">
+                        <button id="proceedBtn">Proceed</button>
+                    </div>
+                </div>
+                <div class="controls-grid" style="margin-top: 20px;">
+                    <button id="calibrateBtn">Run Calibration</button>
+                    <button id="alignBtn">Run Alignment</button>
+                    <button id="eStopBtn">🛑 EMERGENCY STOP 🛑</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Configuration</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="cobotIP">Cobot IP:</label><input type="text" id="cobotIP"></div>
+                    <div class="input-row"><label for="needleColor">Needle Color:</label>
+                        <select id="needleColor">
+                            <option value="red">Red</option>
+                            <option value="green">Green</option>
+                            <option value="pink">Pink</option>
+                        </select>
+                    </div>
+                    <div class="input-row"><label for="calibMove">Calib. Move (mm):</label><input type="number" id="calibMove" step="0.1"></div>
+                    <div class="input-row"><label for="standbyOffset">Standby Offset (mm):</label><input type="number" id="standbyOffset"></div>
+                </div>
+                
+                <h2>Start Positions</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="calibJoints">Calibration Start:</label>
+                        <div class="joint-inputs" id="calibJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                    <div class="input-row"><label for="alignJoints">Alignment Standby:</label>
+                        <div class="joint-inputs" id="alignJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                </div>
+                <button id="saveSettingsBtn">Save All Settings</button>
+            </div>
+
+            <div class="panel" id="status-log-container">
+                <h2>Real-Time Status</h2>
+                <div id="status-log">Connecting to server...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('status-log');
+        const socket = io();
+
+        // --- Helper: Add to Log ---
+        function addToLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${message}`;
+            if (isError) entry.classList.add('log-error');
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // --- Helper: Get/Set Joint Values ---
+        function getJointValues(containerId) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            return Array.from(inputs).map(input => parseFloat(input.value) || 0.0);
+        }
+        function setJointValues(containerId, values) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            inputs.forEach((input, i) => {
+                if (values && values[i] !== undefined) {
+                    input.value = values[i];
+                }
+            });
+        }
+
+        // --- Helper: Get/Set All Settings ---
+        function collectAllSettings() {
+            return {
+                cobot_ip: document.getElementById('cobotIP').value,
+                last_needle_color: document.getElementById('needleColor').value,
+                last_move_mm: parseFloat(document.getElementById('calibMove').value),
+                last_offset_mm: parseFloat(document.getElementById('standbyOffset').value),
+                calibration_start_joints: getJointValues('calibJoints'),
+                alignment_standby_joints: getJointValues('alignJoints')
+            };
+        }
+        function populateAllSettings(settings) {
+            document.getElementById('cobotIP').value = settings.cobot_ip;
+            document.getElementById('needleColor').value = settings.last_needle_color;
+            document.getElementById('calibMove').value = settings.last_move_mm;
+            document.getElementById('standbyOffset').value = settings.last_offset_mm;
+            setJointValues('calibJoints', settings.calibration_start_joints);
+            setJointValues('alignJoints', settings.alignment_standby_joints);
+        }
+
+        // --- Initial Load ---
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch('/get-settings')
+                .then(response => response.json())
+                .then(settings => {
+                    console.log('Loaded settings:', settings);
+                    populateAllSettings(settings);
+                })
+                .catch(error => console.error('Error fetching settings:', error));
+        });
+
+        // ======================================================
+        // SocketIO Event Handlers
+        // ======================================================
+        socket.on('connect', () => {
+            console.log('Connected to the server!');
+            log.innerHTML = '';
+            addToLog('Successfully connected to the server.');
+            socket.emit('request_video_stream'); // Request idle video stream
+        });
+
+        socket.on('status_update', (data) => {
+            console.log('Status:', data.msg);
+            addToLog(data.msg, data.error);
+        });
+
+        socket.on('video_frame', (data) => {
+            document.getElementById('video-feed').src = 'data:image/jpeg;base64,' + data.image;
+        });
+
+        socket.on('show_image_and_wait', (data) => {
+            document.getElementById('popup-image').src = 'data:image/jpeg;base64,' + data.image;
+            document.getElementById('popup-container').style.display = 'flex';
+        });
+
+        socket.on('hide_popup', () => {
+            document.getElementById('popup-container').style.display = 'none';
+        });
+
+        socket.on('process_finished', () => {
+            addToLog('Process finished. Restarting idle video stream.');
+            socket.emit('request_video_stream'); // Request idle video again
+        });
+
+        // ======================================================
+        // Button Click Handlers
+        // ======================================================
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            const settings = collectAllSettings();
+            fetch('/save-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') addToLog('Settings saved successfully.');
+                else addToLog('Failed to save settings.', true);
+            });
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start CALIBRATION? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating calibration...');
+                const settings = collectAllSettings();
+                socket.emit('start_calibration', settings);
+            }
+        });
+
+        document.getElementById('alignBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start ALIGNMENT? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating alignment...');
+                const settings = collectAllSettings();
+                socket.emit('start_alignment', settings);
+            }
+        });
+
+        document.getElementById('proceedBtn').addEventListener('click', () => {
+            addToLog('User "Proceed" clicked.');
+            socket.emit('user_proceed');
+            document.getElementById('popup-container').style.display = 'none';
+        });
+        
+        document.getElementById('eStopBtn').addEventListener('click', () => {
+            if (confirm('EMERGENCY STOP!\nAre you sure you want to stop all robot motion and processes?')) {
+                addToLog('EMERGENCY STOP clicked!', true);
+                socket.emit('emergency_stop');
+                document.getElementById('popup-container').style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html> -->
+
+
+<!-- low latency final integration -->
+<!-- <!DOCTYPE html>
+<html lang="en">    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; background-color: #f0f2f5; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; max-width: 1400px; }
+        .main-content { flex: 2; min-width: 600px; }
+        .sidebar { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 20px;}
+        .panel { padding: 20px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .panel h2 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        /* Video Feed */
+        #video-container { position: relative; width: 100%; background-color: #000; border-radius: 8px; overflow: hidden; min-height: 480px; }
+        #video-feed { width: 100%; height: auto; display: block; }
+        #popup-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        #popup-image { max-width: 90%; max-height: 70%; border: 2px solid white; border-radius: 8px; }
+        #proceedBtn { padding: 12px 25px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Controls */
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .controls-grid button { padding: 12px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+        #calibrateBtn { background-color: #007bff; }
+        #calibrateBtn:hover { background-color: #0056b3; }
+        #alignBtn { background-color: #28a745; }
+        #alignBtn:hover { background-color: #218838; }
+        #eStopBtn { background-color: #dc3545; grid-column: 1 / -1; font-weight: bold; font-size: 18px; }
+        #eStopBtn:hover { background-color: #c82333; }
+
+        /* Settings */
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .input-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 10px; }
+        .input-row label { font-weight: 500; text-align: right; color: #555; }
+        input[type="number"], input[type="text"], select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; width: 100%; box-sizing: border-box; }
+        .joint-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .joint-inputs input { text-align: center; }
+        #saveSettingsBtn { background-color: #17a2b8; color: white; width: 100%; padding: 12px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Status Log */
+        #status-log-container { flex-grow: 1; }
+        #status-log { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; height: 300px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 14px; white-space: pre-wrap; }
+        .log-error { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="panel">
+                <h2>Live View & Process Control</h2>
+                <div id="video-container">
+                    <img id="video-feed" src="" alt="Live Feed">
+                    <div id="popup-container">
+                        <img id="popup-image" src="" alt="Process Step">
+                        <button id="proceedBtn">Proceed</button>
+                    </div>
+                </div>
+                <div class="controls-grid" style="margin-top: 20px;">
+                    <button id="calibrateBtn">Run Calibration</button>
+                    <button id="alignBtn">Run Alignment</button>
+                    <button id="eStopBtn">🛑 EMERGENCY STOP 🛑</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Configuration</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="cobotIP">Cobot IP:</label><input type="text" id="cobotIP"></div>
+                    <div class="input-row"><label for="cameraIndex">Camera Index:</label><input type="number" id="cameraIndex" step="1" min="0"></div>
+                    <div class="input-row"><label for="cameraResW">Camera Res. W:</label><input type="number" id="cameraResW" step="10" min="100"></div>
+                    <div class="input-row"><label for="cameraResH">Camera Res. H:</label><input type="number" id="cameraResH" step="10" min="100"></div>
+                    <div class="input-row"><label for="needleColor">Needle Color:</label>
+                        <select id="needleColor">
+                            <option value="red">Red</option>
+                            <option value="green">Green</option>
+                            <option value="pink">Pink</option>
+                        </select>
+                    </div>
+                    <div class="input-row"><label for="calibMove">Calib. Move (mm):</label><input type="number" id="calibMove" step="0.1"></div>
+                    <div class="input-row"><label for="standbyOffset">Standby Offset (mm):</label><input type="number" id="standbyOffset"></div>
+                </div>
+                
+                <h2>Start Positions</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="calibJoints">Calibration Start:</label>
+                        <div class="joint-inputs" id="calibJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                    <div class="input-row"><label for="alignJoints">Alignment Standby:</label>
+                        <div class="joint-inputs" id="alignJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                </div>
+                <button id="saveSettingsBtn">Save All Settings</button>
+            </div>
+
+            <div class="panel" id="status-log-container">
+                <h2>Real-Time Status</h2>
+                <div id="status-log">Connecting to server...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('status-log');
+        const socket = io();
+
+        // --- Helper: Add to Log ---
+        function addToLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${message}`;
+            if (isError) entry.classList.add('log-error');
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // --- Helper: Get/Set Joint Values ---
+        function getJointValues(containerId) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            return Array.from(inputs).map(input => parseFloat(input.value) || 0.0);
+        }
+        function setJointValues(containerId, values) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            inputs.forEach((input, i) => {
+                if (values && values[i] !== undefined) {
+                    input.value = values[i];
+                }
+            });
+        }
+
+        // --- Helper: Get/Set All Settings ---
+        function collectAllSettings() {
+            return {
+                cobot_ip: document.getElementById('cobotIP').value,
+                camera_index: parseInt(document.getElementById('cameraIndex').value),
+                camera_res_w: parseInt(document.getElementById('cameraResW').value),
+                camera_res_h: parseInt(document.getElementById('cameraResH').value),
+                last_needle_color: document.getElementById('needleColor').value,
+                last_move_mm: parseFloat(document.getElementById('calibMove').value),
+                last_offset_mm: parseFloat(document.getElementById('standbyOffset').value),
+                calibration_start_joints: getJointValues('calibJoints'),
+                alignment_standby_joints: getJointValues('alignJoints')
+            };
+        }
+        function populateAllSettings(settings) {
+            document.getElementById('cobotIP').value = settings.cobot_ip;
+            document.getElementById('cameraIndex').value = settings.camera_index;
+            document.getElementById('cameraResW').value = settings.camera_res_w;
+            document.getElementById('cameraResH').value = settings.camera_res_h;
+            document.getElementById('needleColor').value = settings.last_needle_color;
+            document.getElementById('calibMove').value = settings.last_move_mm;
+            document.getElementById('standbyOffset').value = settings.last_offset_mm;
+            setJointValues('calibJoints', settings.calibration_start_joints);
+            setJointValues('alignJoints', settings.alignment_standby_joints);
+        }
+
+        // --- Initial Load ---
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch('/get-settings')
+                .then(response => response.json())
+                .then(settings => {
+                    console.log('Loaded settings:', settings);
+                    populateAllSettings(settings);
+                })
+                .catch(error => console.error('Error fetching settings:', error));
+        });
+
+        // ======================================================
+        // SocketIO Event Handlers
+        // ======================================================
+        socket.on('connect', () => {
+            console.log('Connected to the server!');
+            log.innerHTML = '';
+            addToLog('Successfully connected to the server.');
+            socket.emit('request_video_stream'); // Request idle video stream
+        });
+
+        socket.on('status_update', (data) => {
+            console.log('Status:', data.msg);
+            addToLog(data.msg, data.error);
+        });
+
+        socket.on('video_frame', (data) => {
+            document.getElementById('video-feed').src = 'data:image/jpeg;base64,' + data.image;
+        });
+
+        socket.on('show_image_and_wait', (data) => {
+            document.getElementById('popup-image').src = 'data:image/jpeg;base64,' + data.image;
+            document.getElementById('popup-container').style.display = 'flex';
+        });
+
+        socket.on('hide_popup', () => {
+            document.getElementById('popup-container').style.display = 'none';
+        });
+
+        socket.on('process_finished', () => {
+            addToLog('Process finished. Restarting idle video stream.');
+            // No explicit request_video_stream needed, as sender thread remains active
+            // and `send_video_to_ui_flag` is set in the wrapper's finally block.
+        });
+
+        // ======================================================
+        // Button Click Handlers
+        // ======================================================
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            const settings = collectAllSettings();
+            fetch('/save-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    addToLog('Settings saved successfully. Restarting video stream with new camera settings...');
+                    socket.emit('request_video_stream'); // Re-request stream to apply new camera settings
+                }
+                else addToLog('Failed to save settings.', true);
+            })
+            .catch(error => {
+                console.error('Error saving settings:', error);
+                addToLog(`Error saving settings: ${error}`, true);
+            });
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start CALIBRATION? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating calibration...');
+                const settings = collectAllSettings();
+                socket.emit('start_calibration', settings);
+            }
+        });
+
+        document.getElementById('alignBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start ALIGNMENT? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating alignment...');
+                const settings = collectAllSettings();
+                socket.emit('start_alignment', settings);
+            }
+        });
+
+        document.getElementById('proceedBtn').addEventListener('click', () => {
+            addToLog('User "Proceed" clicked.');
+            socket.emit('user_proceed');
+            document.getElementById('popup-container').style.display = 'none';
+        });
+        
+        document.getElementById('eStopBtn').addEventListener('click', () => {
+            if (confirm('EMERGENCY STOP!\nAre you sure you want to stop all robot motion and processes?')) {
+                addToLog('EMERGENCY STOP clicked!', true);
+                socket.emit('emergency_stop');
+                document.getElementById('popup-container').style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html> -->
+
+
+<!-- low latency with soft stop button -->
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobot Control Panel</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; background-color: #f0f2f5; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; max-width: 1400px; }
+        .main-content { flex: 2; min-width: 600px; }
+        .sidebar { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 20px;}
+        .panel { padding: 20px; background-color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .panel h2 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        /* Video Feed */
+        #video-container { position: relative; width: 100%; background-color: #000; border-radius: 8px; overflow: hidden; min-height: 480px; }
+        #video-feed { width: 100%; height: auto; display: block; }
+        #popup-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: none; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        #popup-image { max-width: 90%; max-height: 70%; border: 2px solid white; border-radius: 8px; }
+        #proceedBtn { padding: 12px 25px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Controls */
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .controls-grid button { padding: 12px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+        #calibrateBtn { background-color: #007bff; }
+        #calibrateBtn:hover { background-color: #0056b3; }
+        #alignBtn { background-color: #28a745; }
+        #alignBtn:hover { background-color: #218838; }
+        
+        /* --- NEW BUTTON STYLE --- */
+        #stopProcessBtn { background-color: #ffc107; color: #212529; font-weight: bold; }
+        #stopProcessBtn:hover { background-color: #e0a800; }
+        
+        #eStopBtn { background-color: #dc3545; grid-column: 1 / -1; font-weight: bold; font-size: 18px; }
+        #eStopBtn:hover { background-color: #c82333; }
+
+        /* Settings */
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .input-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 10px; }
+        .input-row label { font-weight: 500; text-align: right; color: #555; }
+        input[type="number"], input[type="text"], select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; width: 100%; box-sizing: border-box; }
+        .joint-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .joint-inputs input { text-align: center; }
+        #saveSettingsBtn { background-color: #17a2b8; color: white; width: 100%; padding: 12px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Status Log */
+        #status-log-container { flex-grow: 1; }
+        #status-log { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; height: 300px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 14px; white-space: pre-wrap; }
+        .log-error { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="panel">
+                <h2>Live View & Process Control</h2>
+                <div id="video-container">
+                    <img id="video-feed" src="" alt="Live Feed">
+                    <div id="popup-container">
+                        <img id="popup-image" src="" alt="Process Step">
+                        <button id="proceedBtn">Proceed</button>
+                    </div>
+                </div>
+                <div class="controls-grid" style="margin-top: 20px;">
+                    <button id="calibrateBtn">Run Calibration</button>
+                    <button id="alignBtn">Run Alignment</button>
+                    <button id="stopProcessBtn" style="grid-column: 1 / -1;">⏹️ Stop Process After Cycle</button>
+                    <button id="eStopBtn">🛑 EMERGENCY STOP 🛑</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Configuration</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="cobotIP">Cobot IP:</label><input type="text" id="cobotIP"></div>
+                    <div class="input-row"><label for="cameraIndex">Camera Index:</label><input type="number" id="cameraIndex" step="1" min="0"></div>
+                    <div class="input-row"><label for="cameraResW">Camera Res. W:</label><input type="number" id="cameraResW" step="10" min="100"></div>
+                    <div class="input-row"><label for="cameraResH">Camera Res. H:</label><input type="number" id="cameraResH" step="10" min="100"></div>
+                    <div class="input-row"><label for="needleColor">Needle Color:</label>
+                        <select id="needleColor">
+                            <option value="red">Red</option>
+                            <option value="green">Green</option>
+                            <option value="pink">Pink</option>
+                        </select>
+                    </div>
+                    <div class="input-row"><label for="calibMove">Calib. Move (mm):</label><input type="number" id="calibMove" step="0.1"></div>
+                    <div class="input-row"><label for="standbyOffset">Standby Offset (mm):</label><input type="number" id="standbyOffset"></div>
+                </div>
+                
+                <h2>Start Positions</h2>
+                <div class="input-group">
+                    <div class="input-row"><label for="calibJoints">Calibration Start:</label>
+                        <div class="joint-inputs" id="calibJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                    <div class="input-row"><label for="alignJoints">Alignment Standby:</label>
+                        <div class="joint-inputs" id="alignJoints">
+                            <input type="number" step="0.1" data-index="0"><input type="number" step="0.1" data-index="1"><input type="number" step="0.1" data-index="2">
+                            <input type="number" step="0.1" data-index="3"><input type="number" step="0.1" data-index="4"><input type="number" step="0.1" data-index="5">
+                        </div>
+                    </div>
+                </div>
+                <button id="saveSettingsBtn">Save All Settings</button>
+            </div>
+
+            <div class="panel" id="status-log-container">
+                <h2>Real-Time Status</h2>
+                <div id="status-log">Connecting to server...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('status-log');
+        const socket = io();
+
+        // --- Helper: Add to Log ---
+        function addToLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `> ${message}`;
+            if (isError) entry.classList.add('log-error');
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // --- Helper: Get/Set Joint Values ---
+        function getJointValues(containerId) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            return Array.from(inputs).map(input => parseFloat(input.value) || 0.0);
+        }
+        function setJointValues(containerId, values) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            inputs.forEach((input, i) => {
+                if (values && values[i] !== undefined) {
+                    input.value = values[i];
+                }
+            });
+        }
+
+        // --- Helper: Get/Set All Settings ---
+        function collectAllSettings() {
+            return {
+                cobot_ip: document.getElementById('cobotIP').value,
+                camera_index: parseInt(document.getElementById('cameraIndex').value),
+                camera_res_w: parseInt(document.getElementById('cameraResW').value),
+                camera_res_h: parseInt(document.getElementById('cameraResH').value),
+                last_needle_color: document.getElementById('needleColor').value,
+                last_move_mm: parseFloat(document.getElementById('calibMove').value),
+                last_offset_mm: parseFloat(document.getElementById('standbyOffset').value),
+                calibration_start_joints: getJointValues('calibJoints'),
+                alignment_standby_joints: getJointValues('alignJoints')
+            };
+        }
+        function populateAllSettings(settings) {
+            document.getElementById('cobotIP').value = settings.cobot_ip;
+            document.getElementById('cameraIndex').value = settings.camera_index;
+            document.getElementById('cameraResW').value = settings.camera_res_w;
+            document.getElementById('cameraResH').value = settings.camera_res_h;
+            document.getElementById('needleColor').value = settings.last_needle_color;
+            document.getElementById('calibMove').value = settings.last_move_mm;
+            document.getElementById('standbyOffset').value = settings.last_offset_mm;
+            setJointValues('calibJoints', settings.calibration_start_joints);
+            setJointValues('alignJoints', settings.alignment_standby_joints);
+        }
+
+        // --- Initial Load ---
+        window.addEventListener('DOMContentLoaded', () => {
+            fetch('/get-settings')
+                .then(response => response.json())
+                .then(settings => {
+                    console.log('Loaded settings:', settings);
+                    populateAllSettings(settings);
+                })
+                .catch(error => console.error('Error fetching settings:', error));
+        });
+
+        // ======================================================
+        // SocketIO Event Handlers
+        // ======================================================
+        socket.on('connect', () => {
+            console.log('Connected to the server!');
+            log.innerHTML = '';
+            addToLog('Successfully connected to the server.');
+            socket.emit('request_video_stream'); // Request idle video stream
+        });
+
+        socket.on('status_update', (data) => {
+            console.log('Status:', data.msg);
+            addToLog(data.msg, data.error);
+        });
+
+        socket.on('video_frame', (data) => {
+            document.getElementById('video-feed').src = 'data:image/jpeg;base64,' + data.image;
+        });
+
+        socket.on('show_image_and_wait', (data) => {
+            document.getElementById('popup-image').src = 'data:image/jpeg;base64,' + data.image;
+            document.getElementById('popup-container').style.display = 'flex';
+        });
+
+        socket.on('hide_popup', () => {
+            document.getElementById('popup-container').style.display = 'none';
+        });
+
+        socket.on('process_finished', () => {
+            addToLog('Process finished. Restarting idle video stream.');
+            // No explicit request_video_stream needed, as sender thread remains active
+            // and `send_video_to_ui_flag` is set in the wrapper's finally block.
+        });
+
+        // ======================================================
+        // Button Click Handlers
+        // ======================================================
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            const settings = collectAllSettings();
+            fetch('/save-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    addToLog('Settings saved successfully. Restarting video stream with new camera settings...');
+                    socket.emit('request_video_stream'); // Re-request stream to apply new camera settings
+                }
+                else addToLog('Failed to save settings.', true);
+            })
+            .catch(error => {
+                console.error('Error saving settings:', error);
+                addToLog(`Error saving settings: ${error}`, true);
+            });
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start CALIBRATION? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating calibration...');
+                const settings = collectAllSettings();
+                socket.emit('start_calibration', settings);
+            }
+        });
+
+        document.getElementById('alignBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to start ALIGNMENT? The cobot will move.')) {
+                log.innerHTML = '';
+                addToLog('Initiating alignment...');
+                const settings = collectAllSettings();
+                socket.emit('start_alignment', settings);
+            }
+        });
+
+        document.getElementById('proceedBtn').addEventListener('click', () => {
+            addToLog('User "Proceed" clicked.');
+            socket.emit('user_proceed');
+            document.getElementById('popup-container').style.display = 'none';
+        });
+        
+        // --- NEW BUTTON HANDLER ---
+        document.getElementById('stopProcessBtn').addEventListener('click', () => {
+            if (confirm('Stop Process?\nThis will stop the alignment process after the current cycle finishes.')) {
+                addToLog('Requesting process stop after current cycle...');
+                socket.emit('stop_process');
+            }
+        });
+
+        document.getElementById('eStopBtn').addEventListener('click', () => {
+            if (confirm('EMERGENCY STOP!\nAre you sure you want to stop all robot motion and processes?')) {
+                addToLog('EMERGENCY STOP clicked!', true);
+                socket.emit('emergency_stop');
+                document.getElementById('popup-container').style.display = 'none';
+            }
+        });
+
+    </script>
+</body>
+</html>
